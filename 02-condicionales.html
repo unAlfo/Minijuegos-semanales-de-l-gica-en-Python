@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Misión: compuertas de Marte · Condicionales en Python</title>
+<style>
+  * { box-sizing: border-box }
+  body { margin: 0; background: #10192b; color: #f4f7ff; font: 1.05rem/1.55 system-ui, sans-serif }
+  main { max-width: 45rem; margin: auto; padding: clamp(1rem, 5vw, 3rem) }
+  .tag { color: #94ead6; font-size: .88rem; font-weight: 750; letter-spacing: .08em; text-transform: uppercase }
+  h1 { font-size: clamp(2rem, 7vw, 3.3rem); line-height: 1.05; margin: .45em 0 }
+  h2 { line-height: 1.2 }
+  .card { background: #1c2942; border: 1px solid #526482; border-radius: 1rem; padding: clamp(1rem, 4vw, 1.6rem); margin-top: 1.5rem }
+  pre { background: #10192b; color: #b4f5e6; padding: 1rem; border-radius: .55rem; overflow: auto; font-size: 1rem }
+  progress { display: block; width: 100%; height: .8rem; accent-color: #94ead6 }
+  label { display: block; font-weight: 650; margin-bottom: .4rem }
+  .controls { display: flex; flex-wrap: wrap; gap: .6rem }
+  input, button { font: inherit; border-radius: .5rem; padding: .6rem .85rem }
+  input { width: 9rem; max-width: 100%; background: #10192b; color: inherit; border: 1px solid #a9b7cf }
+  button { background: #94ead6; color: #10192b; border: 1px solid transparent; font-weight: 750; cursor: pointer }
+  :focus-visible { outline: 3px solid #ffce82; outline-offset: 3px }
+  #feedback { color: #ffdc9d }
+  #feedback:empty { margin: 0 }
+  #feedback.success { color: #a3f3dc }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <a href="index.html" style="color:#94ead6">← Todos los minijuegos</a>
+    <p class="tag">Python desde cero · Semana 02</p>
+    <h1>Misión: compuertas de Marte</h1>
+    <p>Una condición permite que Python decida qué camino seguir. Si lo que aparece después de <code>if</code> es verdadero, se ejecutan las líneas con sangría que hay debajo; si es falso, se ejecuta el bloque <code>else</code>. Lee la comparación con calma y predice qué número mostrará el panel.</p>
+  </header>
+  <section class="card" aria-labelledby="title">
+    <p id="score">Progreso: 0 de 3</p>
+    <progress id="bar" aria-label="Retos resueltos" value="0" max="3"></progress>
+    <h2 id="title" tabindex="-1"></h2>
+    <p id="mission"></p>
+    <pre id="snippet"></pre>
+    <form id="game" novalidate>
+      <label for="answer">¿Qué número imprime <code>print</code>?</label>
+      <div class="controls">
+        <input id="answer" type="text" inputmode="numeric" autocomplete="off">
+        <button>Comprobar</button>
+      </div>
+    </form>
+    <p id="feedback" role="status"></p>
+    <button id="next" type="button" hidden>Siguiente reto</button>
+    <button id="restart" type="button" hidden>Volver a jugar</button>
+  </section>
+</main>
+<script>
+  const levels = [
+    { title: '1. Aire suficiente', mission: 'La compuerta abre cuando el nivel de oxígeno supera el mínimo. El símbolo > significa «mayor que».',
+      code: 'oxigeno = 8\nif oxigeno > 5:\n    print(1)\nelse:\n    print(0)', answer: 1,
+      hints: ['Compara el valor de oxigeno con el número que aparece a la derecha de >.', 'Decide si la comparación es verdadera. Después sigue solo el bloque que corresponda.'] },
+    { title: '2. Justo en el límite', mission: 'La segunda compuerta exige que la energía sea estrictamente mayor que el límite.',
+      code: 'energia = 5\nif energia > 5:\n    print(7)\nelse:\n    print(2)', answer: 2,
+      hints: ['Estar por encima del límite y estar justo en él son situaciones distintas.', 'El símbolo > excluye la igualdad. Decide qué bloque se ejecuta cuando la comparación es falsa.'] },
+    { title: '3. Acceso confirmado', mission: 'La última compuerta compara el código con el valor autorizado. El símbolo == pregunta si los valores son iguales.',
+      code: 'codigo = 4\nif codigo == 4:\n    print(9)\nelse:\n    print(3)', answer: 9,
+      hints: ['Distingue =, que asigna un valor, de ==, que compara dos valores.', 'Comprueba si ambos lados de == tienen el mismo valor y sigue únicamente el bloque correspondiente.'] }
+  ];
+  const get = id => document.getElementById(id);
+  const title = get('title'), mission = get('mission'), snippet = get('snippet');
+  const form = get('game'), answer = get('answer'), feedback = get('feedback');
+  const score = get('score'), bar = get('bar'), next = get('next'), restart = get('restart');
+  let current = 0;
+  let solved = 0;
+  let attempts = 0;
+
+  function showLevel() {
+    const level = levels[current];
+    title.textContent = level.title;
+    mission.textContent = level.mission;
+    snippet.textContent = level.code;
+    snippet.hidden = false;
+    form.hidden = false;
+    next.hidden = true;
+    restart.hidden = true;
+    feedback.textContent = '';
+    feedback.className = '';
+    answer.value = '';
+    attempts = 0;
+  }
+
+  function showScore() {
+    score.textContent = 'Progreso: ' + solved + ' de ' + levels.length;
+    bar.value = solved;
+  }
+
+  form.addEventListener('submit', event => {
+    event.preventDefault();
+    if (solved !== current) return;
+    const value = answer.value.trim();
+    if (!/^\d+$/.test(value)) {
+      feedback.textContent = 'Escribe un número entero para comprobar tu predicción.';
+      answer.focus();
+      return;
+    }
+    const level = levels[current];
+    if (Number(value) !== level.answer) {
+      const hint = Math.min(attempts, level.hints.length - 1);
+      feedback.textContent = 'Aún no. Pista ' + (hint + 1) + ': ' + level.hints[hint];
+      attempts += 1;
+      answer.focus();
+      answer.select();
+      return;
+    }
+    solved += 1;
+    showScore();
+    form.hidden = true;
+    feedback.className = 'success';
+    feedback.textContent = '¡Correcto! El panel imprime ' + level.answer + '.';
+    if (solved === levels.length) {
+      title.textContent = '¡Misión cumplida!';
+      mission.textContent = 'Elegiste el camino correcto en tres decisiones de Python. Comprobaste una comparación, su límite y una igualdad.';
+      snippet.hidden = true;
+      restart.hidden = false;
+      title.focus();
+    } else {
+      next.hidden = false;
+      next.focus();
+    }
+  });
+
+  next.addEventListener('click', () => {
+    current += 1;
+    showLevel();
+    title.focus();
+  });
+  restart.addEventListener('click', () => {
+    current = 0;
+    solved = 0;
+    showScore();
+    showLevel();
+    title.focus();
+  });
+  showLevel();
+</script>
+</body>
+</html>
